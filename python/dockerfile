@@ -5,8 +5,12 @@ RUN addgroup -S mercari && adduser -S trainee -G mercari
 
 # 作業ディレクトリの作成
 WORKDIR /app
+# requirements.txtをコピー
 COPY requirements.txt requirements.txt
+# Pythonパッケージの依存関係をインストール
 RUN pip3 install -r requirements.txt
+# すべてのファイルを作業ディレクトリにコピー
 COPY . .
+
 # コマンドを指定
 CMD ["uvicorn", "main:app", "--reload", "--host", "0.0.0.0", "--port", "9000"]
