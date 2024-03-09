@@ -1,1 +1,6 @@
 *.sqlite3
+mercari.sqlite3
+.DS_Store
+*.jpg
+go.sum
+items.json
