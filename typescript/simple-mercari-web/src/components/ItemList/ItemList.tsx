@@ -8,7 +8,7 @@ interface Item {
 };
 
 const server = process.env.REACT_APP_API_URL || 'http://127.0.0.1:9000';
-const placeholderImage = process.env.PUBLIC_URL + '/logo192.png';
+//const placeholderImage = process.env.PUBLIC_URL + '/logo192.png';
 
 interface Prop {
   reload?: boolean;
@@ -19,8 +19,7 @@ export const ItemList: React.FC<Prop> = (props) => {
   const { reload = true, onLoadCompleted } = props;
   const [items, setItems] = useState<Item[]>([])
   const fetchItems = () => {
-    fetch(server.concat('/items'),
-      {
+    fetch(`${server}/items`, {
         method: 'GET',
         mode: 'cors',
         headers: {
@@ -40,18 +39,29 @@ export const ItemList: React.FC<Prop> = (props) => {
   }
 
   useEffect(() => {
+    const originalBackgroundColor = document.body.style.backgroundColor;
+    document.body.style.backgroundColor = '#FFC0CB'; // 背景
+
     if (reload) {
       fetchItems();
     }
+
+    return () => {
+      // コンポーネントがアンマウントされる時に元の背景色に戻す
+      document.body.style.backgroundColor = originalBackgroundColor;
+    };
   }, [reload]);
 
+
   return (
-    <div>
+    <div style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' }}>
       {items.map((item) => {
+        // 画像ファイルのURLを構築
+        const imageUrl = `${server}/image/${item.image_name}`;
         return (
-          <div key={item.id} className='ItemList'>
+          <div key={item.id} className='ItemList' style={{ margin: '10px' }}>
             {/* TODO: Task 1: Replace the placeholder image with the item image */}
-            <img src={placeholderImage} />
+            <img src={imageUrl} alt={item.name} style={{width: '120px', height: '120px'}} />
             <p>
               <span>Name: {item.name}</span>
               <br />

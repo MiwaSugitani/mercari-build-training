@@ -25,18 +25,31 @@
 }
 
 .ItemList {
-  background-color: #222427;
+  background-color: #FFC0CB;
   min-height: 8vh;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: left;
   font-size: calc(10px + 1vmin);
-  color: white;
+  color: black;
 }
 
 .App-link {
   color: #61dafb;
+}
+.custom-file-upload {
+  border: 1px solid #ccc;
+  display: inline-block;
+  padding: 6px 12px;
+  cursor: pointer;
+  background-color: #f8f8f8;
+  margin: 10px 0; /* 余白の調整 */
+}
+
+/* ホバー時のスタイル変更 */
+.custom-file-upload:hover {
+  background-color: #e7e7e7;
 }
 
 @keyframes App-logo-spin {

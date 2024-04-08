@@ -27,7 +27,7 @@ type Items struct {
 }
 
 type Item struct {
-	//ID        string `json:"id"`
+	ID        string `json:"id"`
 	Name      string `json:"name"`
 	Category  string `json:"category"`
 	ImageName string `json:"image_name"`
@@ -50,23 +50,12 @@ func root(c echo.Context) error {
 
 func addItem(c echo.Context) error {
 	name := c.FormValue("name")
-	category := c.FormValue("category")
+	categoryName := c.FormValue("category")
 	image, err := c.FormFile("image")
 	if err != nil {
-		res := Response{Message: "Return image FormFile"}
+		res := Response{Message: "Failed to get image file from form"}
 		return echo.NewHTTPError(http.StatusInternalServerError, res)
 	}
-
-	// 一時ファイルのパスを取得
-	tempFilePath := path.Join(ImgDir, image.Filename)
-
-	// アップロードされた画像を一時ファイルパスに保存
-	if err := saveImage(image, tempFilePath); err != nil {
-		c.Logger().Errorf("画像の保存に失敗しました: %v", err)
-		return err
-	}
-
-	c.Logger().Infof("Image saved to: %s", tempFilePath)
 
 	// 画像のハッシュ化
 	imageFile, err := image.Open()
@@ -101,39 +90,33 @@ func addItem(c echo.Context) error {
 	defer db.Close()
 
 	// カテゴリが存在するか調べる
-	var categoryID int64
-	row := db.QueryRow("SELECT id FROM categories WHERE name = ?", category)
-	err = row.Scan(&categoryID)
-	// カテゴリが存在しない場合、新しいカテゴリを追加
-	if err == sql.ErrNoRows {
-		result, err := db.Exec("INSERT INTO categories (name) VALUES (?)", category)
-		if err != nil {
-			res := Response{Message: "Error adding new categories to the database"}
-			return echo.NewHTTPError(http.StatusInternalServerError, res)
+	var categoryID int
+	err = db.QueryRow("SELECT id FROM categories WHERE name = ?", categoryName).Scan(&categoryID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			// 該当するカテゴリが存在しない場合、新しいカテゴリを追加
+			result, err := db.Exec("INSERT INTO categories (name) VALUES (?)", categoryName)
+			if err != nil {
+				return echo.NewHTTPError(http.StatusInternalServerError, "Failed to insert new category")
+			}
+			newID, err := result.LastInsertId()
+			if err != nil {
+				return echo.NewHTTPError(http.StatusInternalServerError, "Failed to retrieve new category ID")
+			}
+			categoryID = int(newID)
+		} else {
+			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to query category ID")
 		}
-		categoryID, _ = result.LastInsertId()
-	} else if err != nil {
-		c.Logger().Errorf("Error INSERT INTO items: %s", err)
-		res := Response{Message: "Error querying categories from the database"}
-		return echo.NewHTTPError(http.StatusInternalServerError, res)
 	}
 	// アイテムをデータベースに追加
-	stmt, err := db.Prepare("INSERT INTO items (name, category_id, image_name) VALUES (?, ?, ?)")
+	_, err = db.Exec("INSERT INTO items (name, category_id, image_name) VALUES (?, ?, ?)", name, categoryID, imageHash+".jpg")
 	if err != nil {
-		c.Logger().Errorf("Error preparing SQL statement: %s", err)
-		return echo.NewHTTPError(http.StatusInternalServerError, "Error preparing SQL statement")
+		c.Logger().Errorf("Error inserting new item: %s", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Error inserting new item")
 	}
-	defer stmt.Close()
-
-	if _, err = stmt.Exec(name, category, imageHash+".jpg"); err != nil {
-		c.Logger().Errorf("Error opening file: %s", err)
-		res := Response{Message: "Error opening file"}
-		return echo.NewHTTPError(http.StatusInternalServerError, res)
-	}
-	message := fmt.Sprintf("Item received: %s, category: %s, image_name: %s", name, category, imageHash+".jpg")
-	res := Response{Message: message}
-
-	return c.JSON(http.StatusOK, res)
+	c.Logger().Infof("Successfully added item: %s, category ID: %d, image_name: %s", name, categoryID, imageHash+".jpg")
+	message := fmt.Sprintf("Item received: %s, category: %s, image_name: %s", name, categoryName, imageHash+".jpg")
+	return c.JSON(http.StatusOK, Response{Message: message})
 }
 
 func saveImage(file *multipart.FileHeader, path string) error {
@@ -156,6 +139,7 @@ func saveImage(file *multipart.FileHeader, path string) error {
 }
 
 func getItems(c echo.Context) error {
+	c.Logger().Infof("データベースファイルパス: %s", dbPath)
 	// データベースへの接続
 	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
@@ -165,7 +149,7 @@ func getItems(c echo.Context) error {
 	defer db.Close()
 
 	// SQLクエリの実行
-	rows, err := db.Query("SELECT * FROM items;")
+	rows, err := db.Query("SELECT items.id, items.name, categories.name as category, items.image_name FROM items join categories on items.category_id = categories.id;")
 	if err != nil {
 		c.Logger().Errorf("Error querying items: %s", err)
 		return echo.NewHTTPError(http.StatusInternalServerError, "Internal Server Error")
@@ -179,7 +163,7 @@ func getItems(c echo.Context) error {
 	for rows.Next() {
 		var item Item
 		// レコードの各カラムをItem構造体にスキャン
-		if err := rows.Scan(&item.Name, &item.Category, &item.ImageName); err != nil {
+		if err := rows.Scan(&item.ID, &item.Name, &item.Category, &item.ImageName); err != nil {
 			c.Logger().Errorf("Error scanning item: %s", err)
 			return echo.NewHTTPError(http.StatusInternalServerError, "Error scanning item")
 		}

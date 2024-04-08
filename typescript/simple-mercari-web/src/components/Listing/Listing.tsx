@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 
 const server = process.env.REACT_APP_API_URL || 'http://127.0.0.1:9000';
 
@@ -20,16 +20,24 @@ export const Listing: React.FC<Prop> = (props) => {
     image: "",
   };
   const [values, setValues] = useState<formDataType>(initialState);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const onValueChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setValues({
       ...values, [event.target.name]: event.target.value,
     })
   };
+  const onFileButtonClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
   const onFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setValues({
-      ...values, [event.target.name]: event.target.files![0],
-    })
+    if (event.target.files && event.target.files[0]) {
+      setValues({
+        ...values, [event.target.name]: event.target.files![0],
+      });
+    }
   };
   const onSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -57,7 +65,10 @@ export const Listing: React.FC<Prop> = (props) => {
         <div>
           <input type='text' name='name' id='name' placeholder='name' onChange={onValueChange} required />
           <input type='text' name='category' id='category' placeholder='category' onChange={onValueChange} />
-          <input type='file' name='image' id='image' onChange={onFileChange} required />
+          <label htmlFor="file-upload" className="custom-file-upload">
+            Select File
+          </label>
+          <input id="file-upload" type="file" style={{display: 'none'}} onChange={onFileChange} required/>
           <button type='submit'>List this item</button>
         </div>
       </form>
